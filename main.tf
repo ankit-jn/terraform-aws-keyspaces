@@ -12,7 +12,7 @@ resource aws_keyspaces_table "this" {
     keyspace_name = var.keyspace_name
 
     comment {
-        message = coalesce(each.value.comments, each.key)
+        message = coalesce(try(each.value.comments, ""), each.key)
     }
 
     capacity_specification {
@@ -26,7 +26,7 @@ resource aws_keyspaces_table "this" {
         kms_key_identifier = try(each.value.encryption_type, "AWS_OWNED_KMS_KEY") == "CUSTOMER_MANAGED_KMS_KEY" ? each.value.kms_key : null
     }
 
-    default_time_to_live = try(each.value.default_time_to_live, 0)
+    default_time_to_live = try(each.value.default_time_to_live, null)
     
     dynamic "ttl" {
         for_each = try(each.value.enable_ttl, false) ? [1] : []
@@ -36,45 +36,45 @@ resource aws_keyspaces_table "this" {
     } 
 
     point_in_time_recovery {
-        status = try(each.value.point_in_time_recovery, false) ? "ENABLED" : "DISABLED"
+        status = try(each.value.enable_point_in_time_recovery, false) ? "ENABLED" : "DISABLED"
     }
 
     dynamic "schema_definition" {
-        for_each = length(var.columns) > 0 ? [1] : []
+        for_each = try(length(each.value.columns), 0) > 0 ? [1] : []
 
         content {
 
             dynamic "column" {
-                for_each = var.columns
+                for_each = each.value.columns
 
                 content {
-                    name = column.value.name
+                    name = lower(column.value.name)
                     type = column.value.type
                 }
             }
 
             dynamic "partition_key" {
-                for_each = var.partition_key_columns
+                for_each = each.value.partition_key_columns
 
                 content {
-                    name = partition_key.value
+                    name = lower(partition_key.value)
                 }
             }
 
             dynamic "clustering_key" {
-                for_each = var.clustering_key_columns
+                for_each = each.value.clustering_key_columns
 
                 content {
-                    name = clustering_key.value.name
+                    name = lower(clustering_key.value.name)
                     order_by = try(clustering_key.value.order_by, "ASC")
                 }
             }
 
             dynamic "static_column" {
-                for_each = var.static_columns
+                for_each = each.value.static_columns
 
                 content {
-                    name = static_column.value
+                    name = lower(static_column.value)
                 }
             }
         }
